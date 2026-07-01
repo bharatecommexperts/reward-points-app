@@ -1,0 +1,70 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+// prisma/schema.prisma
+
+// ... existing Session model upar hai, usse mat hatao ...
+
+model RewardSettings {
+  id              Int      @id @default(autoincrement())
+  shop            String   @unique  // Kis store ka setting hai
+  pointsPerRupee  Float    @default(1)   // 1 rupee kharch karne par kitne points (e.g. 1 point per ₹100)
+  rupeesPerPoint  Float    @default(0.1) // 1 point ki value kitne rupee (e.g. 100 points = ₹10)
+  minPointsToRedeem Int    @default(100) // Minimum points jo redeem karne ke liye chahiye
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model CustomerPoints {
+  id          Int      @id @default(autoincrement())
+  shop        String   // Store ka domain
+  customerId  String   // Shopify Customer ID
+  totalPoints Int      @default(0) // Current available points
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([shop, customerId]) // Ek customer ka ek hi record per shop
+}
+
+model PointsTransaction {
+  id          Int      @id @default(autoincrement())
+  shop        String
+  customerId  String
+  orderId     String?  // Kis order se points mile (agar earn hai)
+  type        String   // "earn" ya "redeem"
+  points      Int      // Kitne points (+ for earn, - for redeem)
+  description String?  // e.g. "Order #1234 ke liye points"
+  createdAt   DateTime @default(now())
+}
