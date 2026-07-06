@@ -1,0 +1,402 @@
+{% comment %} App Embed Block — Sticky Floating Widget {% endcomment %}
+
+{% if block.settings.show_widget %}
+
+{% if customer %}
+<div id="rp-widget-container">
+  <!-- Floating Button -->
+  <div id="rp-floating-btn" onclick="rpToggleWidget()">
+    <span id="rp-btn-icon">🎁</span>
+    <span id="rp-btn-text">Loading...</span>
+  </div>
+
+  <!-- Popup Panel -->
+  <div id="rp-popup" style="display:none;">
+    <div id="rp-popup-header">
+      <span>🏆 My Rewards</span>
+      <button onclick="rpToggleWidget()" id="rp-close-btn">✕</button>
+    </div>
+
+    <div id="rp-popup-body">
+      <div id="rp-loading">Loading your points...</div>
+
+      <div id="rp-content" style="display:none;">
+        <!-- Points Display -->
+        <div id="rp-points-card">
+          <div id="rp-points-number">0</div>
+          <div id="rp-points-label">Points</div>
+          <div id="rp-points-value">Worth ₹<span id="rp-rupees">0</span></div>
+        </div>
+
+        <!-- Redeem Section -->
+        <div id="rp-redeem-section">
+          <button id="rp-redeem-btn" style="display:none;" onclick="rpRedeem()">
+            🎉 Redeem Points
+          </button>
+          <p id="rp-min-msg" style="display:none;"></p>
+        </div>
+
+        <!-- Success Message -->
+        <div id="rp-success" style="display:none;">
+          <p>🎉 Points Redeemed!</p>
+          <p>Your code:</p>
+          <div id="rp-code-display"></div>
+          <button onclick="rpCopyCode()">📋 Copy Code</button>
+          <p id="rp-copy-msg" style="display:none;">Copied!</p>
+        </div>
+
+        <!-- Points History -->
+        <div id="rp-history-section">
+          <div id="rp-history-title">Recent Activity</div>
+          <div id="rp-history-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Floating Button */
+  #rp-floating-btn {
+    position: fixed;
+    bottom: {{ block.settings.button_position_bottom }}px;
+    right: 20px;
+    background: {{ block.settings.button_color }};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 50px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    z-index: 9999;
+    transition: transform 0.2s;
+  }
+
+  #rp-floating-btn:hover {
+    transform: scale(1.05);
+  }
+
+  /* Popup Panel */
+  #rp-popup {
+    position: fixed;
+    bottom: {{ block.settings.button_position_bottom | plus: 70 }}px;
+    right: 20px;
+    width: 300px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    z-index: 9998;
+    overflow: hidden;
+    animation: rpSlideUp 0.3s ease;
+  }
+
+  @keyframes rpSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Header */
+  #rp-popup-header {
+    background: {{ block.settings.button_color }};
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+    font-size: 16px;
+  }
+
+  #rp-close-btn {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0;
+  }
+
+  /* Body */
+  #rp-popup-body {
+    padding: 20px;
+  }
+
+  /* Points Card */
+  #rp-points-card {
+    text-align: center;
+    background: linear-gradient(135deg, {{ block.settings.button_color }}, #764ba2);
+    color: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  #rp-points-number {
+    font-size: 48px;
+    font-weight: bold;
+    line-height: 1;
+  }
+
+  #rp-points-label {
+    font-size: 14px;
+    opacity: 0.9;
+    margin-top: 4px;
+  }
+
+  #rp-points-value {
+    font-size: 16px;
+    margin-top: 8px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    display: inline-block;
+  }
+
+  /* Redeem Button */
+  #rp-redeem-btn {
+    width: 100%;
+    background: {{ block.settings.button_color }};
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: bold;
+    margin-bottom: 16px;
+    transition: opacity 0.2s;
+  }
+
+  #rp-redeem-btn:hover { opacity: 0.9; }
+  #rp-redeem-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  #rp-min-msg {
+    text-align: center;
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  /* Success */
+  #rp-success {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  #rp-code-display {
+    background: #f0f0f0;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin: 8px 0;
+    word-break: break-all;
+  }
+
+  #rp-success button {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  #rp-copy-msg {
+    color: #28a745;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  /* History */
+  #rp-history-title {
+    font-weight: bold;
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+  }
+
+  .rp-history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f5f5f5;
+    font-size: 13px;
+  }
+
+  .rp-history-item:last-child { border-bottom: none; }
+
+  .rp-earn { color: #28a745; font-weight: bold; }
+  .rp-redeem-text { color: #dc3545; font-weight: bold; }
+
+  #rp-loading {
+    text-align: center;
+    color: #888;
+    padding: 20px;
+  }
+</style>
+
+<script>
+(function() {
+  const customerId = "{{ customer.id }}";
+  const shop = "{{ shop.permanent_domain }}";
+  const baseUrl = "https://reward-points-app.onrender.com";
+  let isOpen = false;
+  let currentCode = '';
+
+  // Points fetch karo on load
+  fetchPoints();
+
+  function fetchPoints() {
+    fetch(`${baseUrl}/apps/rewards/points?customerId=${customerId}&shop=${shop}`, {
+      headers: { "ngrok-skip-browser-warning": "true" }
+    })
+    .then(r => r.json())
+    .then(data => {
+      // Floating button update karo
+      document.getElementById('rp-btn-text').textContent = data.totalPoints + ' pts';
+      document.getElementById('rp-points-number').textContent = data.totalPoints;
+      document.getElementById('rp-rupees').textContent = data.rupeesValue.toFixed(2);
+
+      // Loading hide karo
+      document.getElementById('rp-loading').style.display = 'none';
+      document.getElementById('rp-content').style.display = 'block';
+
+      // Redeem button ya message dikhao
+      if (data.canRedeem) {
+        document.getElementById('rp-redeem-btn').style.display = 'block';
+      } else {
+        document.getElementById('rp-min-msg').style.display = 'block';
+        document.getElementById('rp-min-msg').textContent =
+          `Earn ${data.minPointsToRedeem - data.totalPoints} more points to redeem!`;
+      }
+
+      // History fetch karo
+      fetchHistory();
+    })
+    .catch(() => {
+      document.getElementById('rp-loading').textContent = 'Could not load points.';
+    });
+  }
+
+  function fetchHistory() {
+    fetch(`${baseUrl}/apps/rewards/history?customerId=${customerId}&shop=${shop}`, {
+      headers: { "ngrok-skip-browser-warning": "true" }
+    })
+    .then(r => r.json())
+    .then(data => {
+      const list = document.getElementById('rp-history-list');
+      if (data.transactions && data.transactions.length > 0) {
+        list.innerHTML = data.transactions.slice(0, 5).map(t => `
+          <div class="rp-history-item">
+            <span>${t.description || (t.type === 'earn' ? 'Points Earned' : 'Points Redeemed')}</span>
+            <span class="${t.type === 'earn' ? 'rp-earn' : 'rp-redeem-text'}">
+              ${t.type === 'earn' ? '+' : ''}${t.points} pts
+            </span>
+          </div>
+        `).join('');
+      } else {
+        list.innerHTML = '<div style="color:#888;font-size:13px;text-align:center;">No activity yet</div>';
+      }
+    })
+    .catch(() => {});
+  }
+
+  window.rpToggleWidget = function() {
+    isOpen = !isOpen;
+    document.getElementById('rp-popup').style.display = isOpen ? 'block' : 'none';
+  }
+
+  window.rpRedeem = function() {
+    const btn = document.getElementById('rp-redeem-btn');
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+
+    fetch(`${baseUrl}/apps/rewards/redeem`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true'
+      },
+      body: JSON.stringify({ customerId, shop })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        currentCode = data.discountCode;
+        document.getElementById('rp-redeem-btn').style.display = 'none';
+        document.getElementById('rp-success').style.display = 'block';
+        document.getElementById('rp-code-display').textContent = data.discountCode;
+        document.getElementById('rp-points-number').textContent = '0';
+        document.getElementById('rp-rupees').textContent = '0';
+        document.getElementById('rp-btn-text').textContent = '0 pts';
+      } else {
+        btn.disabled = false;
+        btn.textContent = '🎉 Redeem Points';
+        alert(data.error || 'Something went wrong');
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.textContent = '🎉 Redeem Points';
+      alert('Something went wrong. Please try again.');
+    });
+  }
+
+  window.rpCopyCode = function() {
+    navigator.clipboard.writeText(currentCode).then(() => {
+      document.getElementById('rp-copy-msg').style.display = 'block';
+      setTimeout(() => {
+        document.getElementById('rp-copy-msg').style.display = 'none';
+      }, 2000);
+    });
+  }
+})();
+</script>
+
+{% else %}
+  {% comment %} Guest user — kuch nahi dikhao ya login message dikhao {% endcomment %}
+{% endif %}
+
+{% endif %}
+
+{% schema %}
+{
+  "name": "Reward Points Widget",
+  "target": "body",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "show_widget",
+      "label": "Show Reward Points Widget",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "button_color",
+      "label": "Widget Color",
+      "default": "#667eea"
+    },
+    {
+      "type": "range",
+      "id": "button_position_bottom",
+      "label": "Button Position (from bottom)",
+      "min": 20,
+      "max": 200,
+      "step": 10,
+      "default": 30,
+      "unit": "px"
+    }
+  ]
+}
+{% endschema %}

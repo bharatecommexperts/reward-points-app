@@ -1,3 +1,10 @@
 name = "reward-points-widget"
 type = "theme"
 uid = "29bf0876-017f-b21e-75ed-8e3e10ba02aefbe45c09"
+
+[settings]
+  [[settings.fields]]
+  key = "show_widget"
+  type = "boolean"
+  name = "Show Reward Points Widget"
+  default = true
