@@ -1,2 +1,3 @@
-ALTER TABLE "Session" ADD COLUMN "refreshToken" TEXT;
-ALTER TABLE "Session" ADD COLUMN "refreshTokenExpires" DATETIME;
+-- Migration already applied via session table
+-- refreshToken column exists in Session table from initial migration
+SELECT 1;
