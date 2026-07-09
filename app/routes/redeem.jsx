@@ -1,3 +1,4 @@
+// app/routes/redeem.jsx
 import db from "../db.server";
 
 const corsHeaders = {
@@ -21,13 +22,8 @@ export const action = async ({ request }) => {
 
     if (!customerId || !shop) {
       return Response.json(
-        {
-          success: true,
-          discountCode: createdCode,
-          discountValue: discountValue.toFixed(2), // ✅ Yeh hona chahiye
-          pointsUsed: totalPoints,
-        },
-        { headers: corsHeaders }
+        { error: "Missing required parameters" },
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -57,7 +53,7 @@ export const action = async ({ request }) => {
     }
 
     const discountValue = totalPoints * settings.rupeesPerPoint;
-    const discountCode = `REWARD-${customerId.slice(-6)}-${Date.now().toString(36).toUpperCase()}`;
+    const discountCode = `MSLOYALTY-${customerId.slice(-6)}-${Date.now().toString(36).toUpperCase()}`;
 
     const sessionRecord = await db.session.findFirst({
       where: { shop },
@@ -70,7 +66,6 @@ export const action = async ({ request }) => {
       );
     }
 
-    // GraphQL se Basic Code Discount create karo
     const graphqlQuery = `
       mutation discountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
         discountCodeBasicCreate(basicCodeDiscount: $basicCodeDiscount) {
@@ -79,17 +74,12 @@ export const action = async ({ request }) => {
             codeDiscount {
               ... on DiscountCodeBasic {
                 codes(first: 1) {
-                  nodes {
-                    code
-                  }
+                  nodes { code }
                 }
               }
             }
           }
-          userErrors {
-            field
-            message
-          }
+          userErrors { field message }
         }
       }
     `;
@@ -107,13 +97,9 @@ export const action = async ({ request }) => {
               appliesOnEachItem: false,
             },
           },
-          items: {
-            all: true,
-          },
+          items: { all: true },
         },
-        customerSelection: {
-          all: true,
-        },
+        customerSelection: { all: true },
       },
     };
 
@@ -130,11 +116,9 @@ export const action = async ({ request }) => {
     );
 
     const graphqlData = await graphqlResponse.json();
-    console.log("GraphQL response:", JSON.stringify(graphqlData));
-
     const userErrors = graphqlData?.data?.discountCodeBasicCreate?.userErrors;
+
     if (userErrors && userErrors.length > 0) {
-      console.error("Discount errors:", userErrors);
       return Response.json(
         { error: userErrors[0].message },
         { status: 500, headers: corsHeaders }
@@ -151,13 +135,11 @@ export const action = async ({ request }) => {
       );
     }
 
-    // Points deduct karo
     await db.customerPoints.update({
       where: { shop_customerId: { shop, customerId } },
       data: { totalPoints: 0 },
     });
 
-    // Transaction history
     await db.pointsTransaction.create({
       data: {
         shop,

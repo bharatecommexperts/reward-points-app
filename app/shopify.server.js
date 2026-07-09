@@ -23,9 +23,12 @@ const shopify = shopifyApp({
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
-  
-  // GDPR Webhooks register karo
+
   webhooks: {
+    ORDERS_CREATE: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/orders/create",
+    },
     CUSTOMERS_DATA_REQUEST: {
       deliveryMethod: DeliveryMethod.Http,
       callbackUrl: "/webhooks/customers/data_request",
@@ -36,13 +39,12 @@ const shopify = shopifyApp({
     },
     SHOP_REDACT: {
       deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/customers/redact",
+      callbackUrl: "/webhooks/shop/redact",
     },
   },
-  
-  // App install hone par webhooks automatically register ho
+
   hooks: {
-    afterAuth: async ({ session, admin }) => {
+    afterAuth: async ({ session }) => {
       shopify.registerWebhooks({ session });
     },
   },

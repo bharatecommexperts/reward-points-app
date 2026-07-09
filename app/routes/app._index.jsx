@@ -1,331 +1,359 @@
-import { useEffect } from "react";
-import { useFetcher } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
-import { boundary } from "@shopify/shopify-app-react-router/server";
+import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
+import db from "../db.server";
+import { formatMoney, getCurrencySymbol } from "../utils/currency.js";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
+  const shop = session.shop;
 
-  return null;
-};
+  const shopData = await admin.graphql(`
+    query {
+      shop {
+        currencyCode
+        name
+      }
+    }
+  `);
+  const shopJson = await shopData.json();
+  const currencyCode = shopJson.data.shop.currencyCode || "INR";
 
-export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
-  const color = ["Red", "Orange", "Yellow", "Green"][
-    Math.floor(Math.random() * 4)
-  ];
-  const response = await admin.graphql(
-    `#graphql
-      mutation populateProduct($product: ProductCreateInput!) {
-        productCreate(product: $product) {
-          product {
-            id
-            title
-            handle
-            status
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  price
-                  barcode
-                  createdAt
-                }
-              }
-            }
-            demoInfo: metafield(namespace: "$app", key: "demo_info") {
-              jsonValue
-            }
-          }
-        }
-      }`,
-    {
-      variables: {
-        product: {
-          title: `${color} Snowboard`,
-          metafields: [
-            {
-              namespace: "$app",
-              key: "demo_info",
-              value: "Created by React Router Template",
-            },
-          ],
-        },
-      },
-    },
-  );
-  const responseJson = await response.json();
-  const product = responseJson.data.productCreate.product;
-  const variantId = product.variants.edges[0].node.id;
-  const variantResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-        productVariants {
-          id
-          price
-          barcode
-          createdAt
-        }
-      }
-    }`,
-    {
-      variables: {
-        productId: product.id,
-        variants: [{ id: variantId, price: "100.00" }],
-      },
-    },
-  );
-  const variantResponseJson = await variantResponse.json();
-  const metaobjectResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpsertMetaobject($handle: MetaobjectHandleInput!, $metaobject: MetaobjectUpsertInput!) {
-      metaobjectUpsert(handle: $handle, metaobject: $metaobject) {
-        metaobject {
-          id
-          handle
-          title: field(key: "title") {
-            jsonValue
-          }
-          description: field(key: "description") {
-            jsonValue
-          }
-        }
-        userErrors {
-          field
-          message
-        }
-      }
-    }`,
-    {
-      variables: {
-        handle: {
-          type: "$app:example",
-          handle: "demo-entry",
-        },
-        metaobject: {
-          fields: [
-            { key: "title", value: "Demo Entry" },
-            {
-              key: "description",
-              value:
-                "This metaobject was created by the Shopify app template to demonstrate the metaobject API.",
-            },
-          ],
-        },
-      },
-    },
-  );
-  const metaobjectResponseJson = await metaobjectResponse.json();
+  const totalCustomers = await db.customerPoints.count({
+    where: { shop },
+  });
+
+  const totalPointsData = await db.customerPoints.aggregate({
+    where: { shop },
+    _sum: { totalPoints: true },
+  });
+
+  const totalEarned = await db.pointsTransaction.aggregate({
+    where: { shop, type: "earn" },
+    _sum: { points: true },
+  });
+
+  const totalRedeemed = await db.pointsTransaction.aggregate({
+    where: { shop, type: "redeem" },
+    _sum: { points: true },
+  });
+
+  const recentTransactions = await db.pointsTransaction.findMany({
+    where: { shop },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+  });
+
+  const settings = await db.rewardSettings.findUnique({
+    where: { shop },
+  });
 
   return {
-    product: responseJson.data.productCreate.product,
-    variant: variantResponseJson.data.productVariantsBulkUpdate.productVariants,
-    metaobject: metaobjectResponseJson.data.metaobjectUpsert.metaobject,
+    currencyCode,
+    stats: {
+      totalCustomers,
+      totalPoints: totalPointsData._sum.totalPoints || 0,
+      totalEarned: totalEarned._sum.points || 0,
+      totalRedeemed: Math.abs(totalRedeemed._sum.points || 0),
+    },
+    recentTransactions,
+    settings,
   };
 };
 
 export default function Index() {
-  const fetcher = useFetcher();
-  const shopify = useAppBridge();
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
+  const { stats, recentTransactions, settings, currencyCode } = useLoaderData();
+  const symbol = getCurrencySymbol(currencyCode);
 
-  useEffect(() => {
-    if (fetcher.data?.product?.id) {
-      shopify.toast.show("Product created");
-    }
-  }, [fetcher.data?.product?.id, shopify]);
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
+  const styles = {
+    page: {
+      padding: "24px",
+      fontFamily: "system-ui, sans-serif",
+      maxWidth: "1000px",
+      margin: "0 auto",
+    },
+    header: { marginBottom: "24px" },
+    title: {
+      fontSize: "28px",
+      fontWeight: "bold",
+      color: "#1a1a1a",
+      margin: "0 0 4px 0",
+    },
+    subtitle: { fontSize: "14px", color: "#666", margin: 0 },
+    statsGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+      gap: "16px",
+      marginBottom: "24px",
+    },
+    statCard: {
+      background: "white",
+      borderRadius: "12px",
+      padding: "20px",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+      borderLeft: "4px solid",
+    },
+    statNumber: {
+      fontSize: "32px",
+      fontWeight: "bold",
+      margin: "8px 0 4px 0",
+    },
+    statLabel: { fontSize: "13px", color: "#666", margin: 0 },
+    statIcon: { fontSize: "24px" },
+    card: {
+      background: "white",
+      borderRadius: "12px",
+      padding: "24px",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+      marginBottom: "16px",
+    },
+    cardTitle: {
+      fontSize: "16px",
+      fontWeight: "600",
+      color: "#1a1a1a",
+      marginBottom: "16px",
+      paddingBottom: "12px",
+      borderBottom: "1px solid #eee",
+    },
+    table: { width: "100%", borderCollapse: "collapse" },
+    th: {
+      textAlign: "left",
+      padding: "8px 12px",
+      fontSize: "12px",
+      fontWeight: "600",
+      color: "#888",
+      textTransform: "uppercase",
+      borderBottom: "1px solid #eee",
+    },
+    td: {
+      padding: "12px",
+      fontSize: "14px",
+      borderBottom: "1px solid #f5f5f5",
+      color: "#333",
+    },
+    badge: {
+      padding: "4px 10px",
+      borderRadius: "20px",
+      fontSize: "12px",
+      fontWeight: "600",
+    },
+    settingsCard: {
+      background: "linear-gradient(135deg, #667eea, #764ba2)",
+      borderRadius: "12px",
+      padding: "24px",
+      color: "white",
+      marginBottom: "16px",
+    },
+    settingsTitle: {
+      fontSize: "16px",
+      fontWeight: "600",
+      marginBottom: "16px",
+    },
+    settingsGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(3, 1fr)",
+      gap: "12px",
+    },
+    settingItem: {
+      background: "rgba(255,255,255,0.2)",
+      borderRadius: "8px",
+      padding: "12px",
+      textAlign: "center",
+    },
+    settingValue: { fontSize: "20px", fontWeight: "bold" },
+    settingLabel: { fontSize: "11px", opacity: 0.8, marginTop: "4px" },
+    quickLinks: { display: "flex", gap: "12px", flexWrap: "wrap" },
+    quickLink: {
+      background: "#f5f5f5",
+      border: "1px solid #eee",
+      borderRadius: "8px",
+      padding: "12px 20px",
+      fontSize: "14px",
+      cursor: "pointer",
+      textDecoration: "none",
+      color: "#333",
+      fontWeight: "500",
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+    },
+    emptyState: {
+      textAlign: "center",
+      padding: "32px",
+      color: "#888",
+      fontSize: "14px",
+    },
+  };
+
+  const statCards = [
+    {
+      icon: "👥",
+      label: "Total Customers",
+      value: stats.totalCustomers,
+      color: "#667eea",
+    },
+    {
+      icon: "🎁",
+      label: "Total Points Given",
+      value: stats.totalEarned.toLocaleString(),
+      color: "#28a745",
+    },
+    {
+      icon: "🔄",
+      label: "Points Redeemed",
+      value: stats.totalRedeemed.toLocaleString(),
+      color: "#fd7e14",
+    },
+    {
+      icon: "💰",
+      label: "Active Points",
+      value: stats.totalPoints.toLocaleString(),
+      color: "#e91e63",
+    },
+  ];
 
   return (
-    <s-page heading="Shopify app template">
-      <s-button slot="primary-action" onClick={generateProduct}>
-        Generate a product
-      </s-button>
+    <div style={styles.page}>
 
-      <s-section heading="Congrats on creating a new Shopify app 🎉">
-        <s-paragraph>
-          This embedded app template uses{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/tools/app-bridge"
-            target="_blank"
-          >
-            App Bridge
-          </s-link>{" "}
-          interface examples like an{" "}
-          <s-link href="/app/additional">additional page in the app nav</s-link>
-          , as well as an{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            Admin GraphQL
-          </s-link>{" "}
-          mutation demo, to provide a starting point for app development.
-        </s-paragraph>
-      </s-section>
-      <s-section heading="Get started with products">
-        <s-paragraph>
-          Generate a product with GraphQL and get the JSON output for that
-          product. Learn more about the{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate"
-            target="_blank"
-          >
-            productCreate
-          </s-link>{" "}
-          mutation in our API references. Includes a product{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data/metafields"
-            target="_blank"
-          >
-            metafield
-          </s-link>{" "}
-          and{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data/metaobjects"
-            target="_blank"
-          >
-            metaobject
-          </s-link>
-          .
-        </s-paragraph>
-        <s-stack direction="inline" gap="base">
-          <s-button
-            onClick={generateProduct}
-            {...(isLoading ? { loading: true } : {})}
-          >
-            Generate a product
-          </s-button>
-          {fetcher.data?.product && (
-            <s-button
-              onClick={() => {
-                shopify.intents.invoke?.("edit:shopify/Product", {
-                  value: fetcher.data?.product?.id,
-                });
-              }}
-              target="_blank"
-              variant="tertiary"
-            >
-              Edit product
-            </s-button>
-          )}
-        </s-stack>
-        {fetcher.data?.product && (
-          <s-section heading="productCreate mutation">
-            <s-stack direction="block" gap="base">
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.product, null, 2)}</code>
-                </pre>
-              </s-box>
+      {/* Header */}
+      <div style={styles.header}>
+        <h1 style={styles.title}>🏆 MS Loyalty Dashboard</h1>
+        <p style={styles.subtitle}>
+          Manage your reward points program · Currency:{" "}
+          <strong>{currencyCode} ({symbol})</strong>
+        </p>
+      </div>
 
-              <s-heading>productVariantsBulkUpdate mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.variant, null, 2)}</code>
-                </pre>
-              </s-box>
+      {/* Stats Cards */}
+      <div style={styles.statsGrid}>
+        {statCards.map((stat) => (
+          <div
+            key={stat.label}
+            style={{ ...styles.statCard, borderLeftColor: stat.color }}
+          >
+            <span style={styles.statIcon}>{stat.icon}</span>
+            <p style={{ ...styles.statNumber, color: stat.color }}>
+              {stat.value}
+            </p>
+            <p style={styles.statLabel}>{stat.label}</p>
+          </div>
+        ))}
+      </div>
 
-              <s-heading>metaobjectUpsert mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>
-                    {JSON.stringify(fetcher.data.metaobject, null, 2)}
-                  </code>
-                </pre>
-              </s-box>
-            </s-stack>
-          </s-section>
+      {/* Current Settings */}
+      {settings && (
+        <div style={styles.settingsCard}>
+          <p style={styles.settingsTitle}>⚙️ Current Reward Rules</p>
+          <div style={styles.settingsGrid}>
+            <div style={styles.settingItem}>
+              <div style={styles.settingValue}>
+                {settings.pointsPerRupee}
+              </div>
+              <div style={styles.settingLabel}>
+                Points per {symbol}1
+              </div>
+            </div>
+            <div style={styles.settingItem}>
+              <div style={styles.settingValue}>
+                {symbol}{settings.rupeesPerPoint}
+              </div>
+              <div style={styles.settingLabel}>Value per Point</div>
+            </div>
+            <div style={styles.settingItem}>
+              <div style={styles.settingValue}>
+                {settings.minPointsToRedeem}
+              </div>
+              <div style={styles.settingLabel}>Min to Redeem</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recent Activity */}
+      <div style={styles.card}>
+        <p style={styles.cardTitle}>📊 Recent Activity</p>
+        {recentTransactions.length === 0 ? (
+          <div style={styles.emptyState}>
+            <p>🎯 No activity yet!</p>
+            <p>Points will appear here when customers place orders.</p>
+          </div>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Customer ID</th>
+                <th style={styles.th}>Type</th>
+                <th style={styles.th}>Points</th>
+                <th style={styles.th}>Value</th>
+                <th style={styles.th}>Description</th>
+                <th style={styles.th}>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentTransactions.map((t) => (
+                <tr key={t.id}>
+                  <td style={styles.td}>
+                    ...{t.customerId.slice(-6)}
+                  </td>
+                  <td style={styles.td}>
+                    <span
+                      style={{
+                        ...styles.badge,
+                        background:
+                          t.type === "earn" ? "#d4edda" : "#f8d7da",
+                        color:
+                          t.type === "earn" ? "#155724" : "#721c24",
+                      }}
+                    >
+                      {t.type === "earn" ? "✅ Earned" : "🔴 Redeemed"}
+                    </span>
+                  </td>
+                  <td style={styles.td}>
+                    <strong
+                      style={{
+                        color:
+                          t.type === "earn" ? "#28a745" : "#dc3545",
+                      }}
+                    >
+                      {t.type === "earn" ? "+" : ""}
+                      {t.points}
+                    </strong>
+                  </td>
+                  <td style={styles.td}>
+                    {formatMoney(
+                      Math.abs(t.points) * (settings?.rupeesPerPoint || 0.1),
+                      currencyCode
+                    )}
+                  </td>
+                  <td style={styles.td}>
+                    {t.description || "-"}
+                  </td>
+                  <td style={styles.td}>
+                    {new Date(t.createdAt).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
-      </s-section>
+      </div>
 
-      <s-section slot="aside" heading="App template specs">
-        <s-paragraph>
-          <s-text>Framework: </s-text>
-          <s-link href="https://reactrouter.com/" target="_blank">
-            React Router
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Interface: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/app-home/using-polaris-components"
-            target="_blank"
-          >
-            Polaris web components
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>API: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            GraphQL
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Custom data: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data"
-            target="_blank"
-          >
-            Metafields &amp; metaobjects
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Database: </s-text>
-          <s-link href="https://www.prisma.io/" target="_blank">
-            Prisma
-          </s-link>
-        </s-paragraph>
-      </s-section>
+      {/* Quick Links */}
+      <div style={styles.card}>
+        <p style={styles.cardTitle}>🔗 Quick Links</p>
+        <div style={styles.quickLinks}>
+          <a href="/app/settings" style={styles.quickLink}>
+            ⚙️ Reward Settings
+          </a>
+          <a href="/app/customers" style={styles.quickLink}>
+            👥 Manage Customers
+          </a>
+        </div>
+      </div>
 
-      <s-section slot="aside" heading="Next steps">
-        <s-unordered-list>
-          <s-list-item>
-            Build an{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/getting-started/build-app-example"
-              target="_blank"
-            >
-              example app
-            </s-link>
-          </s-list-item>
-          <s-list-item>
-            Explore Shopify&apos;s API with{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/tools/graphiql-admin-api"
-              target="_blank"
-            >
-              GraphiQL
-            </s-link>
-          </s-list-item>
-        </s-unordered-list>
-      </s-section>
-    </s-page>
+    </div>
   );
 }
-
-export const headers = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};

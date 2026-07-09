@@ -1,3 +1,4 @@
+// app/routes/points.jsx
 import db from "../db.server";
 
 const corsHeaders = {

@@ -4,18 +4,25 @@ import { useState } from "react";
 import { useLoaderData, useSubmit, useNavigation } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { getCurrencySymbol } from "../utils/currency.js";
 
 // LOADER: Saare customers ke points list karo
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = session.shop;
+
+  const shopData = await admin.graphql(`
+    query { shop { currencyCode } }
+  `);
+  const shopJson = await shopData.json();
+  const currencyCode = shopJson.data.shop.currencyCode || "INR";
 
   const customers = await db.customerPoints.findMany({
     where: { shop },
     orderBy: { updatedAt: "desc" },
   });
 
-  return { customers };
+  return { customers, currencyCode };
 };
 
 // ACTION: Manual points adjust karo (add ya deduct)
