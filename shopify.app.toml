@@ -1,6 +1,6 @@
 client_id = "088383db419081f78771e3cdc36ce709"
 name = "Bharat Loyalty Rewards"
-application_url = "https://deleted-actual-fresh-photographs.trycloudflare.com"
+application_url = "https://bharat-loyalty-rewards.onrender.com"
 embedded = true
 
 [webhooks]
@@ -22,12 +22,12 @@ api_version = "2026-10"
 scopes = "read_orders,write_discounts,write_metaobject_definitions,write_metaobjects,write_orders,write_products"
 
 [auth]
-redirect_urls = [ "https://deleted-actual-fresh-photographs.trycloudflare.com/auth/callback" ]
+redirect_urls = [ "https://bharat-loyalty-rewards.onrender.com/auth/callback" ]
 
 [build]
 automatically_update_urls_on_dev = true
 
 [app_proxy]
-url = "https://deleted-actual-fresh-photographs.trycloudflare.com"
+url = "https://bharat-loyalty-rewards.onrender.com"
 subpath = "rewards"
 prefix = "apps"
