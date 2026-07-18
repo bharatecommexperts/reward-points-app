@@ -1,6 +1,5 @@
 {% comment %} App Embed Block — Sticky Floating Widget {% endcomment %}
 
-{% if customer %}
 <div id="rp-widget-container">
   <div id="rp-floating-btn" onclick="rpToggleWidget()">
     <span>🎁</span>
@@ -312,10 +311,6 @@
   }
 })();
 </script>
-
-{% else %}
-  {% comment %} Guest — widget nahi dikhao {% endcomment %}
-{% endif %}
 
 {% schema %}
 {
