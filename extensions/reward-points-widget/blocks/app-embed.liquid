@@ -1,285 +1,138 @@
-{% comment %} App Embed Block — Sticky Floating Widget {% endcomment %}
+{% comment %} Reward Points Widget {% endcomment %}
 
-<div id="rp-widget-container">
-  <div id="rp-floating-btn" onclick="rpToggleWidget()">
-    <span>🎁</span>
-    <span id="rp-btn-text">Loading...</span>
+<div id="rp-floating-btn" onclick="rpToggleWidget()" style="position:fixed;bottom:30px;right:20px;background:#667eea;color:white;padding:12px 20px;border-radius:50px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:bold;box-shadow:0 4px 15px rgba(0,0,0,0.2);z-index:9999;transition:transform 0.2s;">
+  <span>🎁</span>
+  <span id="rp-btn-text">{% if customer %}Loading...{% else %}My Rewards{% endif %}</span>
+</div>
+
+<div id="rp-popup" style="display:none;position:fixed;bottom:100px;right:20px;width:300px;background:white;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,0.15);z-index:9998;overflow:hidden;">
+  <div style="background:#667eea;color:white;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;font-weight:bold;font-size:16px;">
+    <span>🏆 My Rewards</span>
+    <button onclick="rpToggleWidget()" style="background:none;border:none;color:white;cursor:pointer;font-size:18px;padding:0;">✕</button>
   </div>
 
-  <div id="rp-popup" style="display:none;">
-    <div id="rp-popup-header">
-      <span>🏆 My Rewards</span>
-      <button onclick="rpToggleWidget()" id="rp-close-btn">✕</button>
-    </div>
+  <div style="padding:20px;max-height:450px;overflow-y:auto;">
 
-    <div id="rp-popup-body">
-      <div id="rp-loading">Loading your points...</div>
-
+    {% if customer %}
+      <div id="rp-loading" style="text-align:center;color:#888;padding:20px;">Loading your points...</div>
       <div id="rp-content" style="display:none;">
-        <div id="rp-points-card">
-          <div id="rp-points-number">0</div>
-          <div id="rp-points-label">Points</div>
-          <div id="rp-points-value">
+        <div style="text-align:center;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;padding:20px;margin-bottom:16px;">
+          <div id="rp-points-number" style="font-size:48px;font-weight:bold;line-height:1;">0</div>
+          <div style="font-size:14px;opacity:0.9;margin-top:4px;">Points</div>
+          <div style="font-size:16px;margin-top:8px;background:rgba(255,255,255,0.2);border-radius:20px;padding:4px 12px;display:inline-block;">
             Worth <span id="rp-rupees">{{ cart.currency.symbol }}0</span>
           </div>
         </div>
-
-        <div id="rp-redeem-section">
-          <button id="rp-redeem-btn" style="display:none;" onclick="rpRedeem()">
-            🎉 Redeem Points
-          </button>
-          <p id="rp-min-msg" style="display:none;"></p>
-        </div>
-
-        <div id="rp-success" style="display:none;">
-          <p>🎉 Points Redeemed!</p>
+        <button id="rp-redeem-btn" onclick="rpRedeem()" style="display:none;width:100%;background:#667eea;color:white;border:none;padding:12px;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;margin-bottom:16px;">🎉 Redeem Points</button>
+        <p id="rp-min-msg" style="display:none;text-align:center;color:#888;font-size:13px;margin-bottom:16px;"></p>
+        <div id="rp-success" style="display:none;text-align:center;margin-bottom:16px;">
+          <p style="font-weight:bold;color:#28a745;">🎉 Points Redeemed!</p>
           <p>Your code:</p>
-          <div id="rp-code-display"></div>
-          <button onclick="rpCopyCode()">📋 Copy Code</button>
-          <p id="rp-copy-msg" style="display:none;">Copied!</p>
+          <div id="rp-code-display" style="background:#f0f0f0;border:2px dashed #ccc;border-radius:8px;padding:12px;font-size:18px;font-weight:bold;letter-spacing:2px;margin:8px 0;word-break:break-all;"></div>
+          <button onclick="rpCopyCode()" style="background:#28a745;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">📋 Copy Code</button>
+          <p id="rp-copy-msg" style="display:none;color:#28a745;font-size:12px;margin-top:4px;">Copied!</p>
         </div>
-
-        <div id="rp-history-section">
-          <div id="rp-history-title">Recent Activity</div>
-          <div id="rp-history-list"></div>
-        </div>
+        <div style="font-weight:bold;font-size:14px;color:#333;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #eee;">Recent Activity</div>
+        <div id="rp-history-list"></div>
       </div>
-    </div>
+
+    {% else %}
+      <div style="text-align:center;padding:24px 16px;">
+        <div style="font-size:48px;margin-bottom:12px;">🎁</div>
+        <h3 style="font-size:18px;font-weight:bold;color:#333;margin:0 0 8px;">Earn Reward Points!</h3>
+        <p style="color:#666;font-size:14px;margin-bottom:20px;line-height:1.5;">
+          Login to earn points on every purchase and get discounts.
+        </p>
+        <a href="/account/login?return_url={{ request.path | url_encode }}"
+           style="display:block;background:#667eea;color:white;padding:12px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px;margin-bottom:10px;text-align:center;">
+          🔐 Login to View Points
+        </a>
+        <a href="/account/register"
+           style="display:block;background:#f5f5f5;color:#333;padding:12px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:15px;text-align:center;">
+          ✨ Create Account
+        </a>
+      </div>
+    {% endif %}
+
   </div>
 </div>
 
 <style>
-  #rp-floating-btn {
-    position: fixed;
-    bottom: 30px;
-    right: 20px;
-    background: #667eea;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 50px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    font-weight: bold;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    z-index: 9999;
-    transition: transform 0.2s;
-  }
   #rp-floating-btn:hover { transform: scale(1.05); }
-
-  #rp-popup {
-    position: fixed;
-    bottom: 100px;
-    right: 20px;
-    width: 300px;
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-    z-index: 9998;
-    overflow: hidden;
-  }
-
-  #rp-popup-header {
-    background: #667eea;
-    color: white;
-    padding: 16px 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-weight: bold;
-    font-size: 16px;
-  }
-
-  #rp-close-btn {
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-    font-size: 18px;
-    padding: 0;
-  }
-
-  #rp-popup-body {
-    padding: 20px;
-    max-height: 450px;
-    overflow-y: scroll;
-  }
-
-  #rp-points-card {
-    text-align: center;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 16px;
-  }
-
-  #rp-points-number { font-size: 48px; font-weight: bold; line-height: 1; }
-  #rp-points-label { font-size: 14px; opacity: 0.9; margin-top: 4px; }
-
-  #rp-points-value {
-    font-size: 16px;
-    margin-top: 8px;
-    background: rgba(255,255,255,0.2);
-    border-radius: 20px;
-    padding: 4px 12px;
-    display: inline-block;
-  }
-
-  #rp-redeem-btn {
-    width: 100%;
-    background: #667eea;
-    color: white;
-    border: none;
-    padding: 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 15px;
-    font-weight: bold;
-    margin-bottom: 16px;
-  }
+  #rp-redeem-btn:hover { opacity: 0.9; }
   #rp-redeem-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-  #rp-min-msg { text-align: center; color: #888; font-size: 13px; margin-bottom: 16px; }
-
-  #rp-success { text-align: center; margin-bottom: 16px; }
-
-  #rp-code-display {
-    background: #f0f0f0;
-    border: 2px dashed #ccc;
-    border-radius: 8px;
-    padding: 12px;
-    font-size: 18px;
-    font-weight: bold;
-    letter-spacing: 2px;
-    margin: 8px 0;
-    word-break: break-all;
-  }
-
-  #rp-success button {
-    background: #28a745;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-  }
-
-  #rp-copy-msg { color: #28a745; font-size: 12px; margin-top: 4px; }
-
-  #rp-history-title {
-    font-weight: bold;
-    font-size: 14px;
-    color: #333;
-    margin-bottom: 8px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #eee;
-  }
-
-  .rp-history-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px solid #f5f5f5;
-    font-size: 13px;
-  }
-  .rp-history-item:last-child { border-bottom: none; }
-  .rp-earn { color: #28a745; font-weight: bold; }
-  .rp-redeem-text { color: #dc3545; font-weight: bold; }
-  #rp-loading { text-align: center; color: #888; padding: 20px; }
 </style>
 
+{% if customer %}
 <script>
 (function() {
-  const customerId = "{{ customer.id }}";
-  const shop = "{{ shop.permanent_domain }}";
-  const currencyCode = "{{ cart.currency.iso_code }}";
-  const baseUrl = window.location.origin;
-  let isOpen = false;
-  let currentCode = '';
+  var customerId = "{{ customer.id }}";
+  var shop = "{{ shop.permanent_domain }}";
+  var currencyCode = "{{ cart.currency.iso_code }}";
+  var currentCode = '';
 
   function formatMoney(amount) {
     try {
       return new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: currencyCode,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+        style: 'currency', currency: currencyCode,
+        minimumFractionDigits: 2, maximumFractionDigits: 2
       }).format(amount);
-    } catch(e) {
-      return amount;
-    }
+    } catch(e) { return amount; }
   }
 
-  fetchPoints();
+  fetch('/apps/rewards/points?customerId=' + customerId + '&shop=' + shop)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      document.getElementById('rp-btn-text').textContent = data.totalPoints + ' pts';
+      document.getElementById('rp-points-number').textContent = data.totalPoints;
+      document.getElementById('rp-rupees').textContent = formatMoney(data.discountValue);
+      document.getElementById('rp-loading').style.display = 'none';
+      document.getElementById('rp-content').style.display = 'block';
 
-  function fetchPoints() {
-    fetch(`${baseUrl}/apps/rewards/points?customerId=${customerId}&shop=${shop}`)
-      .then(r => r.json())
-      .then(data => {
-        document.getElementById('rp-btn-text').textContent = data.totalPoints + ' pts';
-        document.getElementById('rp-points-number').textContent = data.totalPoints;
-        document.getElementById('rp-rupees').textContent = formatMoney(data.discountValue);
-        document.getElementById('rp-loading').style.display = 'none';
-        document.getElementById('rp-content').style.display = 'block';
+      if (data.canRedeem) {
+        document.getElementById('rp-redeem-btn').style.display = 'block';
+      } else {
+        document.getElementById('rp-min-msg').style.display = 'block';
+        document.getElementById('rp-min-msg').textContent =
+          'Earn ' + (data.minPointsToRedeem - data.totalPoints) + ' more points to redeem!';
+      }
 
-        const btn = document.getElementById('rp-redeem-btn');
-        const minMsg = document.getElementById('rp-min-msg');
-
-        if (data.canRedeem) {
-          btn.style.display = 'block';
-        } else {
-          minMsg.style.display = 'block';
-          minMsg.textContent = `Earn ${data.minPointsToRedeem - data.totalPoints} more points to redeem!`;
-        }
-        fetchHistory();
-      })
-      .catch(() => {
-        document.getElementById('rp-loading').textContent = 'Could not load points.';
-      });
-  }
-
-  function fetchHistory() {
-    fetch(`${baseUrl}/apps/rewards/history?customerId=${customerId}&shop=${shop}`)
-      .then(r => r.json())
-      .then(data => {
-        const list = document.getElementById('rp-history-list');
-        if (data.transactions && data.transactions.length > 0) {
-          list.innerHTML = data.transactions.slice(0, 5).map(t => `
-            <div class="rp-history-item">
-              <span>${t.description || (t.type === 'earn' ? 'Points Earned' : 'Points Redeemed')}</span>
-              <span class="${t.type === 'earn' ? 'rp-earn' : 'rp-redeem-text'}">
-                ${t.type === 'earn' ? '+' : ''}${t.points} pts
-              </span>
-            </div>
-          `).join('');
-        } else {
-          list.innerHTML = '<div style="color:#888;font-size:13px;text-align:center;">No activity yet</div>';
-        }
-      })
-      .catch(() => {});
-  }
+      fetch('/apps/rewards/history?customerId=' + customerId + '&shop=' + shop)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var list = document.getElementById('rp-history-list');
+          if (data.transactions && data.transactions.length > 0) {
+            list.innerHTML = data.transactions.slice(0, 5).map(function(t) {
+              return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5;font-size:13px;">' +
+                '<span>' + (t.description || (t.type === 'earn' ? 'Points Earned' : 'Points Redeemed')) + '</span>' +
+                '<span style="color:' + (t.type === 'earn' ? '#28a745' : '#dc3545') + ';font-weight:bold;">' +
+                (t.type === 'earn' ? '+' : '') + t.points + ' pts</span></div>';
+            }).join('');
+          } else {
+            list.innerHTML = '<div style="color:#888;font-size:13px;text-align:center;">No activity yet</div>';
+          }
+        }).catch(function() {});
+    })
+    .catch(function() {
+      document.getElementById('rp-loading').textContent = 'Could not load points.';
+    });
 
   window.rpToggleWidget = function() {
-    isOpen = !isOpen;
-    document.getElementById('rp-popup').style.display = isOpen ? 'block' : 'none';
-  }
+    var popup = document.getElementById('rp-popup');
+    popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+  };
 
   window.rpRedeem = function() {
-    const btn = document.getElementById('rp-redeem-btn');
+    var btn = document.getElementById('rp-redeem-btn');
     btn.disabled = true;
     btn.textContent = 'Processing...';
-
-    fetch(`${baseUrl}/apps/rewards/redeem`, {
+    fetch('/apps/rewards/redeem', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId, shop })
+      body: JSON.stringify({ customerId: customerId, shop: shop })
     })
-    .then(r => r.json())
-    .then(data => {
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
       if (data.success) {
         currentCode = data.discountCode;
         document.getElementById('rp-redeem-btn').style.display = 'none';
@@ -294,23 +147,31 @@
         alert(data.error || 'Something went wrong');
       }
     })
-    .catch(() => {
+    .catch(function() {
       btn.disabled = false;
       btn.textContent = '🎉 Redeem Points';
       alert('Something went wrong. Please try again.');
     });
-  }
+  };
 
   window.rpCopyCode = function() {
-    navigator.clipboard.writeText(currentCode).then(() => {
+    navigator.clipboard.writeText(currentCode).then(function() {
       document.getElementById('rp-copy-msg').style.display = 'block';
-      setTimeout(() => {
+      setTimeout(function() {
         document.getElementById('rp-copy-msg').style.display = 'none';
       }, 2000);
     });
-  }
+  };
 })();
 </script>
+{% else %}
+<script>
+window.rpToggleWidget = function() {
+  var popup = document.getElementById('rp-popup');
+  popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+};
+</script>
+{% endif %}
 
 {% schema %}
 {
